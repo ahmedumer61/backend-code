@@ -2,7 +2,6 @@ from langchain_core.chat_history import (
     BaseChatMessageHistory,
     InMemoryChatMessageHistory,
 )
-from langchain_core.runnables.history import RunnableWithMessageHistory
 from datetime import date
 from langchain_core.prompts import ChatPromptTemplate
 from services.langchain_services.model import LLMSelection
@@ -38,33 +37,19 @@ class ChatBot:
             session_manager or SessionManager()
         )  # Default session manager
 
-    def generate_response(self,
-                          bmi:float,
-                          workout: str,
-                          session_id: str = None
-                          ) -> str:
+    def generate_response(
+        self, bmi: float, workout: str, session_id: str = None
+    ) -> dict:
         """Generate a response from the selected LLM model based on the message."""
-        # Use the default session history if none is provided
-        session_history = self.session_manager.get_session_history(session_id)
-
         # Create prompt with message
         prompt = ChatPromptTemplate.from_template(PROMPT).format(
             bmi=bmi,
             workout=workout,
         )
 
-        # Initialize the model with memory
-        model_with_memory = RunnableWithMessageHistory(
-            self.model.llm.with_structured_output(HealthPlan), self.session_manager.get_session_history
-        )
+        # Create the structured output chain
+        chain = self.model.llm.with_structured_output(HealthPlan)
 
         # Send message to model
-        response = model_with_memory.invoke(
-            prompt,
-            config={
-                "configurable": {
-                    "session_id": session_id or self.session_manager._datekey
-                }
-            },
-        )
-        return response
+        response = chain.invoke(prompt)
+        return response.dict()
